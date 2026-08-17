@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NestJS + Docker + MariaDB</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family:
+          system-ui,
+          -apple-system,
+          Segoe UI,
+          Roboto,
+          sans-serif;
+      }
+      body {
+        max-width: 720px;
+        margin: 3rem auto;
+        padding: 0 1.5rem;
+        line-height: 1.5;
+      }
+      h1 {
+        font-size: 1.6rem;
+      }
+      .status {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 0.9rem;
+        border-radius: 999px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-bottom: 1.5rem;
+      }
+      .status.ok {
+        background: #d1fae5;
+        color: #065f46;
+      }
+      .status.err {
+        background: #fee2e2;
+        color: #991b1b;
+      }
+      .dot {
+        width: 0.6rem;
+        height: 0.6rem;
+        border-radius: 50%;
+        background: currentColor;
+      }
+      form {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1.5rem;
+      }
+      input[type='text'] {
+        flex: 1;
+        padding: 0.6rem 0.8rem;
+        border-radius: 8px;
+        border: 1px solid #ccc;
+        font-size: 1rem;
+      }
+      button {
+        padding: 0.6rem 1rem;
+        border-radius: 8px;
+        border: none;
+        background: #2563eb;
+        color: white;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      button:hover {
+        background: #1d4ed8;
+      }
+      ul {
+        list-style: none;
+        padding: 0;
+      }
+      li {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        padding: 0.7rem 0.9rem;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        margin-bottom: 0.5rem;
+      }
+      li span {
+        flex: 1;
+      }
+      li.completed span {
+        text-decoration: line-through;
+        opacity: 0.5;
+      }
+      li button {
+        background: #ef4444;
+        padding: 0.3rem 0.6rem;
+        font-size: 0.8rem;
+      }
+      li button:hover {
+        background: #dc2626;
+      }
+      code {
+        background: #f3f4f6;
+        padding: 0.1rem 0.4rem;
+        border-radius: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>🐳 NestJS + Docker + MariaDB</h1>
+    <div id="status" class="status">Comprobando API...</div>
+
+    <p>
+      Este archivo se sirve como archivo estático (<code>express.static</code>,
+      via <code>app.useStaticAssets</code>) desde <code>public/index.html</code>.
+      Los cambios en <code>src/</code> se recargan solos gracias a
+      <code>docker compose watch</code>.
+    </p>
+
+    <form id="task-form">
+      <input type="text" id="task-title" placeholder="Nueva tarea..." required />
+      <button type="submit">Agregar</button>
+    </form>
+
+    <ul id="task-list"></ul>
+
+    <script>
+      const statusEl = document.getElementById('status');
+      const listEl = document.getElementById('task-list');
+      const formEl = document.getElementById('task-form');
+      const titleEl = document.getElementById('task-title');
+
+      async function checkHealth() {
+        try {
+          const res = await fetch('/');
+          if (!res.ok) throw new Error('bad status');
+          statusEl.textContent = '● API conectada';
+          statusEl.className = 'status ok';
+        } catch (err) {
+          statusEl.textContent = '● API no disponible';
+          statusEl.className = 'status err';
+        }
+      }
+
+      async function loadTasks() {
+        try {
+          const res = await fetch('/tasks');
+          const tasks = await res.json();
+          listEl.innerHTML = '';
+          tasks.forEach((task) => {
+            const li = document.createElement('li');
+            li.className = task.completed ? 'completed' : '';
+            li.innerHTML = `
+              <input type="checkbox" ${task.completed ? 'checked' : ''} data-id="${task.id}" class="toggle" />
+              <span>${task.title}</span>
+              <button data-id="${task.id}" class="delete">Eliminar</button>
+            `;
+            listEl.appendChild(li);
+          });
+        } catch (err) {
+          listEl.innerHTML = '<li>No se pudieron cargar las tareas. ¿Está la base de datos arriba?</li>';
+        }
+      }
+
+      formEl.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const title = titleEl.value.trim();
+        if (!title) return;
+        await fetch('/tasks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title }),
+        });
+        titleEl.value = '';
+        loadTasks();
+      });
+
+      listEl.addEventListener('click', async (e) => {
+        const id = e.target.dataset.id;
+        if (!id) return;
+
+        if (e.target.classList.contains('delete')) {
+          await fetch(`/tasks/${id}`, { method: 'DELETE' });
+          loadTasks();
+        }
+
+        if (e.target.classList.contains('toggle')) {
+          await fetch(`/tasks/${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ completed: e.target.checked }),
+          });
+          loadTasks();
+        }
+      });
+
+      checkHealth();
+      loadTasks();
+    </script>
+  </body>
+</html>

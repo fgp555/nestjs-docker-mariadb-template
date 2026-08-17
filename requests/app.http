@@ -1,0 +1,8 @@
+### Variables
+@baseUrl = http://localhost:3000
+
+### GET / -> "Hello World!"
+GET {{baseUrl}}/hello
+
+### GET /health -> chequea la app y la conexión a MariaDB
+GET {{baseUrl}}/health

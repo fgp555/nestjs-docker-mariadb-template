@@ -1,3 +1,74 @@
+# Docker + MariaDB + Watch mode
+
+## Estructura agregada
+
+```
+├── Dockerfile                  # multi-stage: development / build / production
+├── docker-compose.yml          # desarrollo, con `develop.watch`
+├── docker-compose.prod.yml     # producción (imagen liviana, sin watch)
+├── .env.example / .env
+├── public/
+│   └── index.html              # servido en http://localhost:3000 vía express.static
+├── requests/                   # archivos .http (extensión "REST Client" de VSCode)
+│   ├── app.http
+│   ├── tasks.http
+│   └── http-client.env.json
+└── src/
+    ├── database/database.module.ts   # conexión TypeORM -> MariaDB
+    ├── health/                       # GET /health (Terminus: DB ping + memoria)
+    └── tasks/                        # módulo CRUD de ejemplo (entity/controller/service/dto)
+```
+
+## 1. Variables de entorno
+
+Ya existe `.env` (copiado de `.env.example`) con valores por defecto. Ajusta si quieres.
+
+## 2. Desarrollo con recarga en caliente (Compose Watch)
+
+```powershell
+docker compose up --watch
+```
+
+Esto:
+
+- Construye la imagen `development` (etapa `development` del `Dockerfile`).
+- Levanta `api` (NestJS, puerto **3000**), `mariadb` (puerto **3306**) y `adminer` (puerto **8080**, cliente web para ver la BD).
+- Ejecuta `npm run start:dev` (Nest en modo `--watch`) dentro del contenedor.
+- Sincroniza `./src`, `./public` y `./test` hacia el contenedor al vuelo (`action: sync`) — Nest recompila solo, sin reiniciar el contenedor.
+- Si cambias `package.json`, `tsconfig*.json`, `nest-cli.json` o el `Dockerfile`, Compose **reconstruye** la imagen automáticamente (`action: rebuild`).
+
+Alternativa (logs de app separados de los eventos de watch):
+
+```powershell
+docker compose up -d
+docker compose watch
+```
+
+Abre **http://localhost:3000** → verás `public/index.html`, que consume la API de tareas.
+Abre **http://localhost:8080** (Adminer) para ver la base de datos: sistema `MySQL`, servidor `mariadb`, usuario/clave/BD según tu `.env`.
+
+## 3. Probar la API
+
+Con la extensión **REST Client** de VSCode, abre `requests/app.http` o `requests/tasks.http` y haz clic en "Send Request" sobre cada bloque. Incluye CRUD completo contra MariaDB (`GET/POST/PATCH/DELETE /tasks`).
+
+## 4. Producción
+
+```powershell
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+Usa la etapa `production` del `Dockerfile` (imagen final sin devDependencies, corre como usuario no root) y no monta watch.
+
+## Notas
+
+- La conexión a MariaDB usa `@nestjs/typeorm` + `typeorm` + `mysql2`, configurada en `src/database/database.module.ts` a partir de variables de entorno (`DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, `DB_DATABASE`).
+- `synchronize: true` (controlado por `DB_SYNCHRONIZE`) crea/actualiza las tablas automáticamente — útil en desarrollo. En producción, cámbialo a `false` y usa migraciones de TypeORM.
+- `src/tasks` es un CRUD de ejemplo (`Task` entity) para verificar que todo el flujo Nest ↔ MariaDB funciona; bórralo o renómbralo cuando agregues tus propias entidades.
+- **`GET /health`** (vía `@nestjs/terminus`): responde `200` con `{"status":"ok", ...}` si la app y la conexión a MariaDB están sanas, y `503` si algo falla (útil para `healthcheck` de Docker/orquestadores, o para un load balancer). También valida el uso de heap de memoria.
+- **Logging HTTP**: `morgan` está activo en `main.ts` — formato `dev` (conciso, coloreado) en desarrollo y `combined` (estilo Apache, ideal para parsear logs) cuando `NODE_ENV=production`.
+
+---
+
 <p align="center">
   <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
 </p>

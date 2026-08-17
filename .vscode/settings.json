@@ -1,0 +1,11 @@
+{
+  "rest-client.environmentVariables": {
+    "$shared": {},
+    "local": {
+      "baseUrl": "http://localhost:3000"
+    },
+    "docker": {
+      "baseUrl": "http://localhost:3000"
+    }
+  }
+}

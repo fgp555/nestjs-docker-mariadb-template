@@ -1,0 +1,39 @@
+### Variables
+@baseUrl = http://localhost:3000
+@contentType = application/json
+
+### Listar todas las tareas
+GET {{baseUrl}}/tasks
+
+### Crear una tarea
+# @name createTask
+POST {{baseUrl}}/tasks
+Content-Type: {{contentType}}
+
+{
+  "title": "Comprar café",
+  "description": "Grano, tueste medio"
+}
+
+### Obtener una tarea por id
+GET {{baseUrl}}/tasks/1
+
+### Actualizar (marcar como completada)
+PATCH {{baseUrl}}/tasks/1
+Content-Type: {{contentType}}
+
+{
+  "completed": true
+}
+
+### Actualizar título/descripción
+PATCH {{baseUrl}}/tasks/1
+Content-Type: {{contentType}}
+
+{
+  "title": "Comprar café en grano",
+  "description": "Tostado oscuro, 500g"
+}
+
+### Eliminar una tarea
+DELETE {{baseUrl}}/tasks/1

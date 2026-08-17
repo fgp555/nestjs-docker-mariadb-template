@@ -1,0 +1,48 @@
+services:
+  api:
+    build:
+      context: .
+      target: production
+    container_name: nestjs-docker-api
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    env_file:
+      - .env
+    environment:
+      DB_HOST: mariadb
+      NODE_ENV: production
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  mariadb:
+    image: mariadb:11
+    container_name: nestjs-docker-mariadb
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootpass}
+      MARIADB_DATABASE: ${DB_DATABASE:-nestjs_db}
+      MARIADB_USER: ${DB_USERNAME:-nestjs}
+      MARIADB_PASSWORD: ${DB_PASSWORD:-nestjs}
+    volumes:
+      - mariadb-data:/var/lib/mysql
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  mariadb-data:
